@@ -172,10 +172,10 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
-            const glob = require('glob');
+            const globPattern = require('glob');
 
             // Find all .exe files in dist directory using glob pattern
-            const files = glob.sync('dist/**/*.exe');
+            const files = globPattern.sync('dist/**/*.exe');
             console.log('Found files:', files);
 
             for (const file of files) {
