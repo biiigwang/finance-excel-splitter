@@ -54,13 +54,65 @@ jobs:
             dist/*.dmg
           if-no-files-found: ignore
 
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        id: create_release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: context.ref,
+              name: '财务数据拆分工具 ' + context.ref,
+              draft: false,
+              prerelease: false
+            });
+            return release.data.id;
+
+      - name: Upload to Release (macOS)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Upload .app
+            const appPath = 'dist/财务数据拆分工具.app';
+            if (fs.existsSync(appPath)) {
+              // Upload as zip since GitHub doesn't support .app directly
+              const { execSync } = require('child_process');
+              execSync(`cd dist && zip -r 财务数据拆分工具-macOS.app.zip 财务数据拆分工具.app`, { stdio: 'inherit' });
+
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: ${{ steps.create_release.outputs.result }},
+                name: '财务数据拆分工具-macOS.zip',
+                data: fs.readFileSync('dist/财务数据拆分工具-macOS.app.zip')
+              });
+            }
+
+            // Upload DMG
+            const dmgFiles = glob.sync('dist/*.dmg');
+            for (const file of dmgFiles) {
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: ${{ steps.create_release.outputs.result }},
+                name: path.basename(file),
+                data: fs.readFileSync(file)
+              });
+            }
+
   build-windows:
     runs-on: windows-latest
     strategy:
       matrix:
-        python-version: ['3.9', '3.11']
+        python-version: ['3.8', '3.11']
         include:
-          - python-version: '3.9'
+          - python-version: '3.8'
             suffix: '-win7'
           - python-version: '3.11'
             suffix: '-win10+'
@@ -93,3 +145,25 @@ jobs:
         with:
           name: windows-exe-${{ matrix.python-version }}
           path: dist/*.exe
+
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const glob = require('glob');
+
+            const files = glob.sync('dist/*.exe');
+            console.log('Found files:', files);
+
+            for (const file of files) {
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: context.payload.release.id,
+                name: path.basename(file),
+                data: fs.readFileSync(file)
+              });
+            }
