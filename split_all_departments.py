@@ -15,6 +15,7 @@ Usage:
 import argparse
 import sys
 from pathlib import Path
+from typing import Tuple
 
 from openpyxl import load_workbook
 
@@ -58,7 +59,7 @@ Examples:
     return parser.parse_args()
 
 
-def validate_paths(input_path: str, output_dir: str) -> tuple[Path, Path]:
+def validate_paths(input_path: str, output_dir: str) -> Tuple[Path, Path]:
     """
     Validate input and output paths.
 

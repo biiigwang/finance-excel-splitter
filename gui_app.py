@@ -11,6 +11,7 @@ import sys
 import threading
 import tkinter as tk
 from pathlib import Path
+from typing import Tuple
 from tkinter import ttk, filedialog, messagebox
 
 from openpyxl import load_workbook
@@ -183,7 +184,7 @@ class FinanceSplitterGUI:
             self.progress_value.set(progress)
         self.root.update_idletasks()
 
-    def validate_inputs(self) -> tuple[Path, Path]:
+    def validate_inputs(self) -> Tuple[Path, Path]:
         """
         Validate input and output paths.
 

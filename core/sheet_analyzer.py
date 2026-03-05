@@ -5,7 +5,7 @@ Analyzes Excel sheets to find department columns and data structure.
 """
 
 import re
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
 from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from .sheet_structure import SheetStructure
@@ -69,7 +69,7 @@ class SheetAnalyzer:
 
         return structure
 
-    def _find_header_and_dept_col(self, worksheet: Worksheet) -> tuple[Optional[int], Optional[int]]:
+    def _find_header_and_dept_col(self, worksheet: Worksheet) -> Tuple[Optional[int], Optional[int]]:
         """
         Find the header row and department column in the sheet.
 
