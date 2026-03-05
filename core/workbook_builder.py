@@ -23,7 +23,8 @@ class WorkbookBuilder:
         source_workbook: Workbook,
         sheet_structures: Dict[str, SheetStructure],
         output_dir: Path,
-        dept_index: Optional[DepartmentIndex] = None
+        dept_index: Optional[DepartmentIndex] = None,
+        remove_empty_sheets: bool = True
     ):
         """
         Initialize the builder with source workbook and structures.
@@ -33,11 +34,13 @@ class WorkbookBuilder:
             sheet_structures: Dictionary mapping sheet names to SheetStructure objects
             output_dir: Directory to save output files
             dept_index: Optional pre-built department index for caching
+            remove_empty_sheets: If True, remove sheets with no data for the department
         """
         self.source_workbook = source_workbook
         self.sheet_structures = sheet_structures
         self.output_dir = output_dir
         self.dept_index = dept_index
+        self.remove_empty_sheets = remove_empty_sheets
 
     def build_workbook_for_department(self, department: str) -> Path:
         """
@@ -166,10 +169,16 @@ class WorkbookBuilder:
             structure: The sheet structure information
             department: The department to filter by
         """
-        target_ws = target_workbook.create_sheet(title=source_worksheet.title)
-
         # Get matching rows from index (cached)
         matching_rows = self.dept_index.get_rows(department, source_worksheet.title)
+
+        # Check if there is data for this department
+        if not matching_rows:
+            if self.remove_empty_sheets:
+                return  # Skip creating this sheet
+            # If keeping empty sheets, create sheet with only header
+
+        target_ws = target_workbook.create_sheet(title=source_worksheet.title)
 
         # Get total columns
         max_col = source_worksheet.max_column
@@ -181,12 +190,13 @@ class WorkbookBuilder:
             row_values = [cell.value for cell in row]
             target_ws.append(row_values)
 
-        # Copy data rows using iter_rows and append
-        # For each row index, get the row using iter_rows
-        for source_row_idx in matching_rows:
-            row = next(source_worksheet.iter_rows(min_row=source_row_idx, max_row=source_row_idx, min_col=1, max_col=max_col))
-            row_values = [cell.value for cell in row]
-            target_ws.append(row_values)
+        # Copy data rows using iter_rows and append (only if there are matching rows)
+        if matching_rows:
+            # For each row index, get the row using iter_rows
+            for source_row_idx in matching_rows:
+                row = next(source_worksheet.iter_rows(min_row=source_row_idx, max_row=source_row_idx, min_col=1, max_col=max_col))
+                row_values = [cell.value for cell in row]
+                target_ws.append(row_values)
 
         # Copy column widths
         for col_letter in source_worksheet.column_dimensions:
@@ -218,8 +228,18 @@ class WorkbookBuilder:
         """
         from .sheet_filter import SheetFilter
 
-        target_worksheet = target_workbook.create_sheet(title=source_worksheet.title)
         sheet_filter = SheetFilter(source_worksheet, structure)
+
+        # Get matching rows first to check if we should skip this sheet
+        matching_rows = sheet_filter.filter_by_department(department)
+
+        # Check if there is data for this department
+        if not matching_rows:
+            if self.remove_empty_sheets:
+                return  # Skip creating this sheet
+            # If keeping empty sheets, create sheet with only header
+
+        target_worksheet = target_workbook.create_sheet(title=source_worksheet.title)
 
         target_row = 1
 
@@ -233,17 +253,16 @@ class WorkbookBuilder:
                 copy_cell_style(source_cell, target_cell)
             target_row += 1
 
-        # Copy matching data rows
-        matching_rows = sheet_filter.filter_by_department(department)
+        # Copy matching data rows (only if there are matching rows)
+        if matching_rows:
+            for source_row_idx in matching_rows:
+                for col_idx in range(1, source_worksheet.max_column + 1):
+                    source_cell = source_worksheet.cell(row=source_row_idx, column=col_idx)
+                    target_cell = target_worksheet.cell(row=target_row, column=col_idx)
 
-        for source_row_idx in matching_rows:
-            for col_idx in range(1, source_worksheet.max_column + 1):
-                source_cell = source_worksheet.cell(row=source_row_idx, column=col_idx)
-                target_cell = target_worksheet.cell(row=target_row, column=col_idx)
-
-                target_cell.value = source_cell.value
-                copy_cell_style(source_cell, target_cell)
-            target_row += 1
+                    target_cell.value = source_cell.value
+                    copy_cell_style(source_cell, target_cell)
+                target_row += 1
 
         # Copy column widths
         for col_letter in source_worksheet.column_dimensions:

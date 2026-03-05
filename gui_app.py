@@ -49,6 +49,7 @@ class FinanceSplitterGUI:
         self.output_path = tk.StringVar(value=str(Path.cwd() / 'output'))
         self.status_text = tk.StringVar(value="Ready")
         self.progress_value = tk.DoubleVar(value=0)
+        self.remove_empty_sheets = tk.BooleanVar(value=True)
 
         self.create_widgets()
         self.layout_widgets()
@@ -92,6 +93,14 @@ class FinanceSplitterGUI:
             self.output_frame,
             text="浏览...",
             command=self.browse_output
+        )
+
+        # Options section
+        self.options_frame = ttk.LabelFrame(self.root, text="选项", padding=10)
+        self.remove_empty_checkbox = ttk.Checkbutton(
+            self.options_frame,
+            text="移除空白子表",
+            variable=self.remove_empty_sheets
         )
 
         # Progress section
@@ -138,6 +147,10 @@ class FinanceSplitterGUI:
         self.output_frame.pack(fill='x', padx=20, pady=5)
         self.output_entry.pack(side='left', fill='x', expand=True, padx=(0, 5))
         self.output_button.pack(side='right')
+
+        # Options frame
+        self.options_frame.pack(fill='x', padx=20, pady=5)
+        self.remove_empty_checkbox.pack(anchor='w')
 
         # Progress frame
         self.progress_frame.pack(fill='x', padx=20, pady=10)
@@ -254,7 +267,10 @@ class FinanceSplitterGUI:
 
             # Build workbooks using index
             self.root.after(0, lambda: self.update_status(f"找到 {len(all_departments)} 个科室，正在生成文件...", 40))
-            builder = WorkbookBuilder(wb, sheet_structures, output_dir, dept_index)
+            builder = WorkbookBuilder(
+                wb, sheet_structures, output_dir, dept_index,
+                remove_empty_sheets=self.remove_empty_sheets.get()
+            )
 
             total = len(all_departments)
             success_count = 0

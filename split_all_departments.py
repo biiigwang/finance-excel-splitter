@@ -56,6 +56,12 @@ Examples:
         help='Output directory path (default: output)'
     )
 
+    parser.add_argument(
+        '--keep-empty-sheets',
+        action='store_true',
+        help='保留空白子表（默认移除）'
+    )
+
     return parser.parse_args()
 
 
@@ -150,7 +156,11 @@ def main():
 
         # Build workbooks for each department (using index for caching)
         print("\nGenerating department files...")
-        builder = WorkbookBuilder(wb, sheet_structures, output_path, dept_index)
+        # Note: remove_empty_sheets defaults to True, so we invert the flag
+        builder = WorkbookBuilder(
+            wb, sheet_structures, output_path, dept_index,
+            remove_empty_sheets=not args.keep_empty_sheets
+        )
         success_count = 0
 
         for dept in sorted(all_departments):
