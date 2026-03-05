@@ -6,6 +6,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-macos:
     runs-on: macos-latest
@@ -77,6 +80,7 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
+            const { execSync } = require('child_process');
             const glob = require('glob');
 
             // Upload .app
@@ -154,8 +158,18 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
+            const { execSync } = require('child_process');
 
-            const files = glob.sync('dist/*.exe');
+            // Use glob if available, otherwise use execSync
+            let files;
+            try {
+              const glob = require('glob');
+              files = glob.sync('dist/*.exe');
+            } catch (e) {
+              // Fallback: use PowerShell to find exe files
+              const result = execSync('Get-ChildItem -Path dist -Filter *.exe | Select-Object -ExpandProperty Name', { encoding: 'utf8' });
+              files = result.trim().split('\n').filter(f => f);
+            }
             console.log('Found files:', files);
 
             for (const file of files) {
