@@ -81,7 +81,6 @@ jobs:
             const fs = require('fs');
             const path = require('path');
             const { execSync } = require('child_process');
-            const glob = require('glob');
 
             // Upload .app
             const appPath = 'dist/财务数据拆分工具.app';
@@ -100,7 +99,7 @@ jobs:
             }
 
             // Upload DMG
-            const dmgFiles = glob.sync('dist/*.dmg');
+            const dmgFiles = fs.readdirSync('dist').filter(f => f.endsWith('.dmg'));
             for (const file of dmgFiles) {
               await github.rest.repos.uploadReleaseAsset({
                 owner: context.repo.owner,
@@ -158,18 +157,9 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
-            const { execSync } = require('child_process');
 
-            // Use glob if available, otherwise use execSync
-            let files;
-            try {
-              const glob = require('glob');
-              files = glob.sync('dist/*.exe');
-            } catch (e) {
-              // Fallback: use PowerShell to find exe files
-              const result = execSync('Get-ChildItem -Path dist -Filter *.exe | Select-Object -ExpandProperty Name', { encoding: 'utf8' });
-              files = result.trim().split('\n').filter(f => f);
-            }
+            // Find all .exe files in dist directory
+            const files = fs.readdirSync('dist').filter(f => f.endsWith('.exe'));
             console.log('Found files:', files);
 
             for (const file of files) {
