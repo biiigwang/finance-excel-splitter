@@ -82,3 +82,59 @@ ws = wb['Sheet1']
 # 获取单元格的实际数值
 value = ws['A1'].value
 ```
+
+## GitHub Actions 构建最佳实践
+
+### 问题与解决方案总结
+
+在构建多平台发布版本时，遇到以下问题并逐步解决：
+
+1. **Windows 构建产物上传失败（中文文件名编码问题）**
+   - 原因：`fs.readdirSync('dist')` 在 Windows 环境下读取中文文件名时出现问题
+   - 解决：使用 `glob` 库进行文件匹配，使用 `glob.sync('dist/**/*.exe')` 获取完整路径
+
+2. **glob 变量名冲突**
+   - 原因：在同一作用域内声明 `const glob = require('glob')` 后，又使用 `glob.sync()` 导致变量名冲突
+   - 解决：将导入的模块重命名为 `globPattern` 避免冲突：`const globPattern = require('glob')`
+
+3. **Windows 产物名称不一致**
+   - 原因：不同 Python 版本生成的产物名称不同（win7 vs win10+）
+   - 解决：使用 glob 模式匹配而非硬编码文件名
+
+### Workflow 关键配置
+
+```yaml
+# 安装 glob 库
+- name: Install glob for file matching
+  run: npm install glob
+
+# 上传时使用完整路径
+- name: Upload to Release
+  uses: actions/github-script@v7
+  with:
+    script: |
+      const fs = require('fs');
+      const path = require('path');
+      const globPattern = require('glob');
+
+      // 使用 glob 获取完整路径
+      const files = globPattern.sync('dist/**/*.exe');
+
+      for (const file of files) {
+        const fileName = path.basename(file);
+        await github.rest.repos.uploadReleaseAsset({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          release_id: ${{ needs.create-release.outputs.release_id }},
+          name: fileName,
+          data: fs.readFileSync(file)
+        });
+      }
+```
+
+### 调试技巧
+
+1. **查看构建日志**：使用 `gh run view <run_id> --log-failed` 查看失败日志
+2. **本地测试 Workflow**：使用 `workflow_dispatch` 手动触发构建
+3. **使用artifact验证**：先通过 `actions/upload-artifact` 上传到 artifact，确认文件存在后再上传到 Release
+4. **添加调试输出**：在脚本中添加 `console.log` 输出中间变量值
