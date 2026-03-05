@@ -55,7 +55,7 @@ jobs:
       - name: Build macOS app
         run: |
           pyinstaller \
-            --name="财务数据拆分工具" \
+            --name="FinanceExcelSplitter" \
             --windowed \
             --onefile \
             --clean \
@@ -65,20 +65,20 @@ jobs:
         run: |
           brew install create-dmg || true
           create-dmg \
-            --volname "财务数据拆分工具" \
+            --volname "FinanceExcelSplitter" \
             --window-pos 200 120 \
             --window-size 600 400 \
             --icon-size 100 \
             --app-drop-link 450 185 \
-            "dist/财务数据拆分工具-macOS.dmg" \
-            "dist/财务数据拆分工具.app" || true
+            "dist/FinanceExcelSplitter-macOS.dmg" \
+            "dist/FinanceExcelSplitter.app" || true
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: macOS-app
           path: |
-            dist/财务数据拆分工具.app
+            dist/FinanceExcelSplitter.app
             dist/*.dmg
           if-no-files-found: ignore
 
@@ -92,18 +92,18 @@ jobs:
             const { execSync } = require('child_process');
 
             // Upload .app
-            const appPath = 'dist/财务数据拆分工具.app';
+            const appPath = 'dist/FinanceExcelSplitter.app';
             if (fs.existsSync(appPath)) {
               // Upload as zip since GitHub doesn't support .app directly
               const { execSync } = require('child_process');
-              execSync(`cd dist && zip -r 财务数据拆分工具-macOS.app.zip 财务数据拆分工具.app`, { stdio: 'inherit' });
+              execSync(`cd dist && zip -r FinanceExcelSplitter-macOS.app.zip FinanceExcelSplitter.app`, { stdio: 'inherit' });
 
               await github.rest.repos.uploadReleaseAsset({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 release_id: ${{ needs.create-release.outputs.release_id }},
-                name: '财务数据拆分工具-macOS.zip',
-                data: fs.readFileSync('dist/财务数据拆分工具-macOS.app.zip')
+                name: 'FinanceExcelSplitter-macOS.zip',
+                data: fs.readFileSync('dist/FinanceExcelSplitter-macOS.app.zip')
               });
             }
 
@@ -150,7 +150,7 @@ jobs:
       - name: Build Windows executable
         run: |
           pyinstaller `
-            --name="财务数据拆分工具${{ matrix.suffix }}" `
+            --name="FinanceExcelSplitter${{ matrix.suffix }}" `
             --windowed `
             --onefile `
             --clean `
