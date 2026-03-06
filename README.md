@@ -1,4 +1,4 @@
-# Finance Excel Splitter - 财务 Excel 数据拆分工具
+# 甜甜的财务数据拆分工具 (SweetyFinanceExcelSplitter)
 
 ## 功能说明
 
@@ -10,7 +10,9 @@
 - 支持多种科室列表头（"科室"、"绩效科室"等）
 - 自动收集所有科室名称
 - 为每个科室生成包含所有 sheet 的独立 Excel 文件
-- 保留原 Excel 的格式和样式
+- **保留原 Excel 的格式和样式**（可选择）
+- **移除空白子表功能**（可选）
+- **三种样式模式**：统一样式、保留原样式、无样式
 - 提供两种使用方式：图形化界面 (GUI) 和命令行 (CLI)
 
 ---
@@ -61,7 +63,9 @@ python gui_app.py
 使用步骤：
 1. 点击"浏览..."选择要处理的 Excel 文件
 2. 选择输出目录（默认为程序所在目录的 output 文件夹）
-3. 点击"开始处理"
+3. 可选：勾选"移除空白子表"移除没有数据的 sheet
+4. 可选：选择样式模式（统一样式、保留原样式、无样式）
+5. 点击"开始处理"
 
 ### 2. 命令行版本 (CLI)
 
@@ -89,17 +93,21 @@ python split_all_departments.py -h
 
 ### macOS
 
-1. 双击 `财务数据拆分工具.app`
+1. 双击 `SweetyFinanceExcelSplitter.app`
 2. 点击"浏览..."选择要处理的 Excel 文件
 3. 选择输出目录（默认为程序所在目录的 output 文件夹）
-4. 点击"开始处理"
+4. 可选：勾选"移除空白子表"移除没有数据的 sheet
+5. 可选：选择样式模式
+6. 点击"开始处理"
 
 ### Windows
 
-1. 双击 `财务数据拆分工具.exe`
+1. 双击 `SweetyFinanceExcelSplitter.exe`
 2. 点击"浏览..."选择要处理的 Excel 文件
 3. 选择输出目录（默认为程序所在目录的 output 文件夹）
-4. 点击"开始处理"
+4. 可选：勾选"移除空白子表"移除没有数据的 sheet
+5. 可选：选择样式模式
+6. 点击"开始处理"
 
 ---
 
@@ -133,7 +141,7 @@ pip install pyinstaller
 python build_macos.py
 ```
 
-输出：`dist/财务数据拆分工具.app`
+输出：`dist/SweetyFinanceExcelSplitter.app`
 
 #### 打包 Windows 版本
 
@@ -143,7 +151,7 @@ python build_macos.py
 python build_windows.py
 ```
 
-输出：`dist/财务数据拆分工具.exe`
+输出：`dist/SweetyFinanceExcelSplitter.exe`
 
 ### 支持的系统
 

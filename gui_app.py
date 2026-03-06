@@ -33,7 +33,7 @@ class FinanceSplitterGUI:
             root: The root tkinter window
         """
         self.root = root
-        self.root.title("财务数据拆分工具 - Finance Excel Splitter")
+        self.root.title("甜甜的财务数据拆分工具")
         self.root.geometry("600x400")
         self.root.minsize(500, 350)
 
@@ -67,7 +67,7 @@ class FinanceSplitterGUI:
         # Title label
         self.title_label = ttk.Label(
             self.root,
-            text="财务数据拆分工具",
+            text="甜甜的财务数据拆分工具",
             font=('Arial', 16, 'bold')
         )
 

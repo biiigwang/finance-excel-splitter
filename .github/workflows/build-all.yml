@@ -55,7 +55,7 @@ jobs:
       - name: Build macOS app
         run: |
           pyinstaller \
-            --name="FinanceExcelSplitter" \
+            --name="SweetyFinanceExcelSplitter" \
             --windowed \
             --onefile \
             --clean \
@@ -65,20 +65,20 @@ jobs:
         run: |
           brew install create-dmg || true
           create-dmg \
-            --volname "FinanceExcelSplitter" \
+            --volname "SweetyFinanceExcelSplitter" \
             --window-pos 200 120 \
             --window-size 600 400 \
             --icon-size 100 \
             --app-drop-link 450 185 \
-            "dist/FinanceExcelSplitter-macOS.dmg" \
-            "dist/FinanceExcelSplitter.app" || true
+            "dist/SweetyFinanceExcelSplitter-macOS.dmg" \
+            "dist/SweetyFinanceExcelSplitter.app" || true
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: macOS-app
           path: |
-            dist/FinanceExcelSplitter.app
+            dist/SweetyFinanceExcelSplitter.app
             dist/*.dmg
           if-no-files-found: ignore
 
@@ -92,18 +92,18 @@ jobs:
             const { execSync } = require('child_process');
 
             // Upload .app
-            const appPath = 'dist/FinanceExcelSplitter.app';
+            const appPath = 'dist/SweetyFinanceExcelSplitter.app';
             if (fs.existsSync(appPath)) {
               // Upload as zip since GitHub doesn't support .app directly
               const { execSync } = require('child_process');
-              execSync(`cd dist && zip -r FinanceExcelSplitter-macOS.app.zip FinanceExcelSplitter.app`, { stdio: 'inherit' });
+              execSync(`cd dist && zip -r SweetyFinanceExcelSplitter-macOS.app.zip SweetyFinanceExcelSplitter.app`, { stdio: 'inherit' });
 
               await github.rest.repos.uploadReleaseAsset({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 release_id: ${{ needs.create-release.outputs.release_id }},
-                name: 'FinanceExcelSplitter-macOS.zip',
-                data: fs.readFileSync('dist/FinanceExcelSplitter-macOS.app.zip')
+                name: 'SweetyFinanceExcelSplitter-macOS.zip',
+                data: fs.readFileSync('dist/SweetyFinanceExcelSplitter-macOS.app.zip')
               });
             }
 
@@ -150,7 +150,7 @@ jobs:
       - name: Build Windows executable
         run: |
           pyinstaller `
-            --name="FinanceExcelSplitter${{ matrix.suffix }}" `
+            --name="SweetyFinanceExcelSplitter${{ matrix.suffix }}" `
             --windowed `
             --onefile `
             --clean `
