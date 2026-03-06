@@ -51,10 +51,14 @@ class FinanceSplitterGUI:
         self.progress_value = tk.DoubleVar(value=0)
         self.remove_empty_sheets = tk.BooleanVar(value=True)
         # Display value to internal value mapping for style mode
+        # Include both display values and internal values for compatibility
         self._style_display_map = {
             "统一样式（默认）": "unified",
+            "unified": "unified",
             "保留原样式": "original",
-            "无样式": "none"
+            "original": "original",
+            "无样式": "none",
+            "none": "none"
         }
         # Use display value for StringVar, will be converted when passed to WorkbookBuilder
         self.style_mode = tk.StringVar(value="统一样式（默认）")
