@@ -12,7 +12,7 @@ import threading
 import tkinter as tk
 from pathlib import Path
 from typing import Tuple
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, font
 
 from openpyxl import load_workbook
 
@@ -34,10 +34,15 @@ class FinanceSplitterGUI:
         """
         self.root = root
         self.root.title("甜甜的财务数据拆分工具")
-        self.root.geometry("600x400")
-        self.root.minsize(500, 350)
+        self.root.geometry("700x450")
+        self.root.minsize(600, 400)
+
+        # Set default font
+        self._setup_default_font()
 
         # Set window icon (if available)
+        self._setup_icon()
+
         try:
             if sys.platform == 'darwin':  # macOS
                 self.root.tk.call('tk', 'scaling', 1.0)
@@ -175,9 +180,10 @@ class FinanceSplitterGUI:
 
         # Options frame
         self.options_frame.pack(fill='x', padx=20, pady=5)
-        self.remove_empty_checkbox.pack(anchor='w')
-        self.style_label.pack(anchor='w', pady=(5, 0))
-        self.style_combobox.pack(anchor='w')
+        # Make options horizontal layout
+        self.remove_empty_checkbox.pack(side='left', padx=(0, 20))
+        self.style_label.pack(side='left', padx=(0, 5))
+        self.style_combobox.pack(side='left')
 
         # Progress frame
         self.progress_frame.pack(fill='x', padx=20, pady=10)
@@ -210,6 +216,45 @@ class FinanceSplitterGUI:
         dir_path = filedialog.askdirectory(title="选择输出目录")
         if dir_path:
             self.output_path.set(dir_path)
+
+    def _setup_default_font(self) -> None:
+        """Setup default font for the application."""
+        # Use system default font for better appearance
+        default_font = font.nametofont("TkDefaultFont")
+        default_font.configure(size=11)
+        self.root.option_add("*Font", default_font)
+
+        # Also configure ttk styles
+        style = ttk.Style()
+        style.configure("TLabel", font=("TkDefaultFont", 11))
+        style.configure("TButton", font=("TkDefaultFont", 11))
+        style.configure("TCheckbutton", font=("TkDefaultFont", 11))
+        style.configure("TEntry", font=("TkDefaultFont", 11))
+        style.configure("TCombobox", font=("TkDefaultFont", 11))
+
+    def _setup_icon(self) -> None:
+        """Setup window icon if available."""
+        # Try to load icon from various possible locations
+        icon_paths = [
+            Path(__file__).parent / "icon.png",
+            Path(__file__).parent / "icon.ico",
+            Path(__file__).parent / "resources" / "icon.png",
+            Path(__file__).parent / "resources" / "icon.ico",
+        ]
+
+        for icon_path in icon_paths:
+            if icon_path.exists():
+                try:
+                    if icon_path.suffix == ".ico":
+                        # Windows ICO format
+                        self.root.iconbitmap(str(icon_path))
+                    else:
+                        # PNG format (works on macOS and Windows)
+                        self.root.iconphoto(False, tk.PhotoImage(file=str(icon_path)))
+                    break
+                except Exception:
+                    # If icon loading fails, continue silently
+                    pass
 
     def _on_style_select(self, event) -> None:
         """

@@ -40,9 +40,9 @@ def apply_unified_style(cell) -> None:
         bgColor='FFFFFF'
     )
 
-    # Alignment: general alignment
+    # Alignment: center both horizontally and vertically
     cell.alignment = Alignment(
-        horizontal='general',
+        horizontal='center',
         vertical='center',
         wrap_text=False
     )
