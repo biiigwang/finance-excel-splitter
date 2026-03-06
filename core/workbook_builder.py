@@ -8,9 +8,44 @@ from typing import List, Dict, Optional
 from pathlib import Path
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
+from openpyxl.styles import Font, Border, Side, PatternFill, Alignment
 from .sheet_structure import SheetStructure
 from .department_index import DepartmentIndex
 from .style_utils import copy_cell_style
+
+
+def apply_unified_style(cell) -> None:
+    """
+    Apply unified style to a cell.
+
+    Args:
+        cell: The openpyxl cell to apply style to
+    """
+    # Font: Arial 11
+    cell.font = Font(name='Arial', size=11)
+
+    # Border: thin border on all sides
+    thin_side = Side(style='thin', color='000000')
+    cell.border = Border(
+        left=thin_side,
+        right=thin_side,
+        top=thin_side,
+        bottom=thin_side
+    )
+
+    # Fill: white background
+    cell.fill = PatternFill(
+        fill_type='solid',
+        fgColor='FFFFFF',
+        bgColor='FFFFFF'
+    )
+
+    # Alignment: general alignment
+    cell.alignment = Alignment(
+        horizontal='general',
+        vertical='center',
+        wrap_text=False
+    )
 
 
 class WorkbookBuilder:
@@ -24,7 +59,8 @@ class WorkbookBuilder:
         sheet_structures: Dict[str, SheetStructure],
         output_dir: Path,
         dept_index: Optional[DepartmentIndex] = None,
-        remove_empty_sheets: bool = True
+        remove_empty_sheets: bool = True,
+        style_mode: str = "unified"
     ):
         """
         Initialize the builder with source workbook and structures.
@@ -35,12 +71,15 @@ class WorkbookBuilder:
             output_dir: Directory to save output files
             dept_index: Optional pre-built department index for caching
             remove_empty_sheets: If True, remove sheets with no data for the department
+            style_mode: Style mode - "original" (keep original styles),
+                       "unified" (apply unified style), or "none" (no styles)
         """
         self.source_workbook = source_workbook
         self.sheet_structures = sheet_structures
         self.output_dir = output_dir
         self.dept_index = dept_index
         self.remove_empty_sheets = remove_empty_sheets
+        self.style_mode = style_mode
 
     def build_workbook_for_department(self, department: str) -> Path:
         """
@@ -111,7 +150,13 @@ class WorkbookBuilder:
                 target_cell = target_worksheet.cell(row=row_idx, column=col_idx)
 
                 target_cell.value = source_cell.value
-                copy_cell_style(source_cell, target_cell)
+
+                # Apply style based on style_mode
+                if self.style_mode == "original":
+                    copy_cell_style(source_cell, target_cell)
+                elif self.style_mode == "unified":
+                    apply_unified_style(target_cell)
+                # style_mode == "none": do nothing
 
         # Copy column widths
         for col_letter in source_worksheet.column_dimensions:
@@ -190,6 +235,18 @@ class WorkbookBuilder:
             row_values = [cell.value for cell in row]
             target_ws.append(row_values)
 
+            # Apply style to header row cells
+            if self.style_mode == "original":
+                # Get source row for style copying
+                source_row_idx = row[0].row
+                for col_idx, target_cell in enumerate(target_ws[target_ws.max_row], 1):
+                    source_cell = source_worksheet.cell(row=source_row_idx, column=col_idx)
+                    copy_cell_style(source_cell, target_cell)
+            elif self.style_mode == "unified":
+                for cell in target_ws[target_ws.max_row]:
+                    apply_unified_style(cell)
+            # style_mode == "none": do nothing
+
         # Copy data rows using iter_rows and append (only if there are matching rows)
         if matching_rows:
             # For each row index, get the row using iter_rows
@@ -197,6 +254,16 @@ class WorkbookBuilder:
                 row = next(source_worksheet.iter_rows(min_row=source_row_idx, max_row=source_row_idx, min_col=1, max_col=max_col))
                 row_values = [cell.value for cell in row]
                 target_ws.append(row_values)
+
+                # Apply style to data row cells
+                if self.style_mode == "original":
+                    for col_idx, target_cell in enumerate(target_ws[target_ws.max_row], 1):
+                        source_cell = source_worksheet.cell(row=source_row_idx, column=col_idx)
+                        copy_cell_style(source_cell, target_cell)
+                elif self.style_mode == "unified":
+                    for cell in target_ws[target_ws.max_row]:
+                        apply_unified_style(cell)
+                # style_mode == "none": do nothing
 
         # Copy column widths
         for col_letter in source_worksheet.column_dimensions:
@@ -250,7 +317,14 @@ class WorkbookBuilder:
                 target_cell = target_worksheet.cell(row=target_row, column=col_idx)
 
                 target_cell.value = source_cell.value
-                copy_cell_style(source_cell, target_cell)
+
+                # Apply style based on style_mode
+                if self.style_mode == "original":
+                    copy_cell_style(source_cell, target_cell)
+                elif self.style_mode == "unified":
+                    apply_unified_style(target_cell)
+                # style_mode == "none": do nothing
+
             target_row += 1
 
         # Copy matching data rows (only if there are matching rows)
@@ -261,7 +335,14 @@ class WorkbookBuilder:
                     target_cell = target_worksheet.cell(row=target_row, column=col_idx)
 
                     target_cell.value = source_cell.value
-                    copy_cell_style(source_cell, target_cell)
+
+                    # Apply style based on style_mode
+                    if self.style_mode == "original":
+                        copy_cell_style(source_cell, target_cell)
+                    elif self.style_mode == "unified":
+                        apply_unified_style(target_cell)
+                    # style_mode == "none": do nothing
+
                 target_row += 1
 
         # Copy column widths

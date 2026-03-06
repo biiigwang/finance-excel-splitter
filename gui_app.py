@@ -50,6 +50,14 @@ class FinanceSplitterGUI:
         self.status_text = tk.StringVar(value="Ready")
         self.progress_value = tk.DoubleVar(value=0)
         self.remove_empty_sheets = tk.BooleanVar(value=True)
+        # Display value to internal value mapping for style mode
+        self._style_display_map = {
+            "统一样式（默认）": "unified",
+            "保留原样式": "original",
+            "无样式": "none"
+        }
+        # Use display value for StringVar, will be converted when passed to WorkbookBuilder
+        self.style_mode = tk.StringVar(value="统一样式（默认）")
 
         self.create_widgets()
         self.layout_widgets()
@@ -103,6 +111,19 @@ class FinanceSplitterGUI:
             variable=self.remove_empty_sheets
         )
 
+        # Style mode selection
+        self.style_label = ttk.Label(self.options_frame, text="样式模式:")
+        self.style_combobox = ttk.Combobox(
+            self.options_frame,
+            textvariable=self.style_mode,
+            values=["统一样式（默认）", "保留原样式", "无样式"],
+            state="readonly",
+            width=15
+        )
+        self.style_combobox.current(0)
+        # Bind selection to convert display value to internal value
+        self.style_combobox.bind('<<ComboboxSelected>>', self._on_style_select)
+
         # Progress section
         self.progress_frame = ttk.LabelFrame(self.root, text="处理进度", padding=10)
         self.progress_bar = ttk.Progressbar(
@@ -151,6 +172,8 @@ class FinanceSplitterGUI:
         # Options frame
         self.options_frame.pack(fill='x', padx=20, pady=5)
         self.remove_empty_checkbox.pack(anchor='w')
+        self.style_label.pack(anchor='w', pady=(5, 0))
+        self.style_combobox.pack(anchor='w')
 
         # Progress frame
         self.progress_frame.pack(fill='x', padx=20, pady=10)
@@ -183,6 +206,22 @@ class FinanceSplitterGUI:
         dir_path = filedialog.askdirectory(title="选择输出目录")
         if dir_path:
             self.output_path.set(dir_path)
+
+    def _on_style_select(self, event) -> None:
+        """
+        Convert display value to internal style mode value.
+
+        Args:
+            event: The combobox selection event
+        """
+        display_to_internal = {
+            "统一样式（默认）": "unified",
+            "保留原样式": "original",
+            "无样式": "none"
+        }
+        current_display = self.style_mode.get()
+        if current_display in display_to_internal:
+            self.style_mode.set(display_to_internal[current_display])
 
     def update_status(self, message: str, progress: float = None) -> None:
         """
@@ -267,9 +306,12 @@ class FinanceSplitterGUI:
 
             # Build workbooks using index
             self.root.after(0, lambda: self.update_status(f"找到 {len(all_departments)} 个科室，正在生成文件...", 40))
+            # Convert display style mode to internal value
+            style_mode_value = self._style_display_map.get(self.style_mode.get(), "unified")
             builder = WorkbookBuilder(
                 wb, sheet_structures, output_dir, dept_index,
-                remove_empty_sheets=self.remove_empty_sheets.get()
+                remove_empty_sheets=self.remove_empty_sheets.get(),
+                style_mode=style_mode_value
             )
 
             total = len(all_departments)
