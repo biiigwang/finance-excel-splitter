@@ -33,6 +33,7 @@ def main():
         '--onefile',
         '--clean',
         '--noconfirm',
+        '--icon=icons/app.icns',
         'gui_app.py'
     ]
 

@@ -59,6 +59,7 @@ jobs:
             --windowed \
             --onefile \
             --clean \
+            --icon=icons/app.icns \
             gui_app.py
 
       - name: Create DMG
@@ -154,6 +155,7 @@ jobs:
             --windowed `
             --onefile `
             --clean `
+            --icon=icons/app.ico `
             gui_app.py
 
       - name: Upload Windows artifact

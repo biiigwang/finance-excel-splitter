@@ -21,19 +21,26 @@ class DepartmentIndex:
     # Header values to skip when indexing
     SKIP_HEADERS: Set[str] = {'科室', '绩效科室', '序号'}
 
-    def __init__(self, workbook: Workbook, sheet_structures: Dict[str, SheetStructure]):
+    def __init__(
+        self,
+        workbook: Workbook,
+        sheet_structures: Dict[str, SheetStructure],
+        split_column: Optional[str] = None,
+    ):
         """
         Initialize the index with workbook and sheet structures.
 
         Args:
             workbook: The openpyxl workbook to index
             sheet_structures: Dictionary mapping sheet names to SheetStructure objects
+            split_column: Optional name of the column to split by (uses SheetAnalyzer's split_column)
         """
         self.workbook = workbook
         self.sheet_structures = sheet_structures
-        # Index structure: {sheet_name: {department: [row_indices]}}
+        self.split_column = split_column
+        # Index structure: {sheet_name: {split_value: [row_indices]}}
         self._index: Dict[str, Dict[str, List[int]]] = {}
-        self._departments: Set[str] = set()
+        self._split_values: Set[str] = set()
         self._is_built: bool = False
 
     def build_index(self) -> 'DepartmentIndex':
@@ -53,7 +60,7 @@ class DepartmentIndex:
             raise ValueError("Sheet structures are required")
 
         self._index.clear()
-        self._departments.clear()
+        self._split_values.clear()
 
         # Build index for each sheet
         for sheet_name, structure in self.sheet_structures.items():
@@ -106,7 +113,7 @@ class DepartmentIndex:
                 sheet_index[dept_name] = []
 
             sheet_index[dept_name].append(row_idx)
-            self._departments.add(dept_name)
+            self._split_values.add(dept_name)
 
         return sheet_index
 
@@ -170,22 +177,22 @@ class DepartmentIndex:
 
     def get_departments(self) -> Set[str]:
         """
-        Get all indexed departments.
+        Get all indexed split values (departments or other split column values).
 
         Returns:
-            Set of department names
+            Set of split values
         """
         if not self._is_built:
             self.build_index()
 
-        return self._departments.copy()
+        return self._split_values.copy()
 
     def get_sorted_departments(self) -> List[str]:
         """
-        Get all departments sorted alphabetically.
+        Get all split values sorted alphabetically.
 
         Returns:
-            Sorted list of department names
+            Sorted list of split values
         """
         return sorted(list(self.get_departments()))
 

@@ -19,14 +19,16 @@ class SheetAnalyzer:
     # Pattern to match department column headers (exact match or common variations)
     DEPT_HEADERS = {'科室', '绩效科室', '所属科室', '部门'}
 
-    def __init__(self, workbook: Workbook):
+    def __init__(self, workbook: Workbook, split_column: Optional[str] = None):
         """
         Initialize the analyzer with a workbook.
 
         Args:
             workbook: The openpyxl workbook to analyze
+            split_column: Optional name of the column to split by (if None, auto-detect)
         """
         self.workbook = workbook
+        self.split_column = split_column
 
     def analyze_all_sheets(self) -> Dict[str, SheetStructure]:
         """
@@ -81,6 +83,18 @@ class SheetAnalyzer:
         """
         max_rows_to_check = min(10, worksheet.max_row)
 
+        # If user specified a split column, try to find it first
+        if self.split_column:
+            target_col_name = self.split_column.strip()
+            for row_idx in range(1, max_rows_to_check + 1):
+                for col_idx in range(1, worksheet.max_column + 1):
+                    cell_value = worksheet.cell(row=row_idx, column=col_idx).value
+                    if cell_value and str(cell_value).strip() == target_col_name:
+                        return row_idx, col_idx
+            # If specified column not found, return None instead of falling back
+            return None, None
+
+        # Auto-detect mode: look for known department headers
         for row_idx in range(1, max_rows_to_check + 1):
             for col_idx in range(1, worksheet.max_column + 1):
                 cell_value = worksheet.cell(row=row_idx, column=col_idx).value
@@ -131,3 +145,73 @@ class SheetAnalyzer:
                 departments.add(str(dept_value).strip())
 
         return sorted(list(departments))
+
+    def get_all_unique_headers(self) -> List[str]:
+        """
+        获取所有 sheet 的唯一列名（表头）。
+
+        对于每个 sheet：
+        - 先尝试找到科室列所在的行作为表头行
+        - 如果找不到科室列，取第一行或列数最多的行
+
+        Returns:
+            去重并排序后的列名列表
+        """
+        all_headers = set()
+
+        for sheet_name in self.workbook.sheetnames:
+            worksheet = self.workbook[sheet_name]
+
+            # 先尝试用原逻辑找到表头行
+            header_row, _ = self._find_header_row_for_headers(worksheet)
+
+            if header_row:
+                # 收集该行的所有非空列名
+                for col_idx in range(1, worksheet.max_column + 1):
+                    cell_value = worksheet.cell(row=header_row, column=col_idx).value
+                    if cell_value:
+                        header_str = str(cell_value).strip()
+                        if header_str:
+                            all_headers.add(header_str)
+
+        # 排序后返回
+        return sorted(list(all_headers))
+
+    def _find_header_row_for_headers(self, worksheet: Worksheet) -> Tuple[Optional[int], Optional[int]]:
+        """
+        仅用于收集列名的内部方法：查找可能的表头行。
+
+        逻辑与 _find_header_and_dept_col 类似，但不依赖 split_column，
+        总是尝试自动检测科室列来确定表头行。
+
+        Args:
+            worksheet: The worksheet to analyze
+
+        Returns:
+            Tuple of (header_row, dept_col) or (None, None) if not found
+        """
+        max_rows_to_check = min(10, worksheet.max_row)
+
+        # 首先尝试查找科室列
+        for row_idx in range(1, max_rows_to_check + 1):
+            for col_idx in range(1, worksheet.max_column + 1):
+                cell_value = worksheet.cell(row=row_idx, column=col_idx).value
+                if cell_value and str(cell_value).strip() in self.DEPT_HEADERS:
+                    return row_idx, col_idx
+
+        # 如果找不到科室列，找列数最多的前几行中的第一行
+        max_cols = 0
+        best_row = None
+        for row_idx in range(1, max_rows_to_check + 1):
+            non_empty_count = 0
+            for col_idx in range(1, worksheet.max_column + 1):
+                if worksheet.cell(row=row_idx, column=col_idx).value:
+                    non_empty_count += 1
+            if non_empty_count > max_cols:
+                max_cols = non_empty_count
+                best_row = row_idx
+
+        if best_row:
+            return best_row, None
+
+        return None, None

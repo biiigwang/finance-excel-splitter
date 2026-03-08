@@ -68,6 +68,9 @@ class FinanceSplitterGUI:
         # Use display value for StringVar, will be converted when passed to WorkbookBuilder
         self.style_mode = tk.StringVar(value="统一样式（默认）")
 
+        # Split column selection
+        self.split_column = tk.StringVar(value="自动检测（默认）")
+
         self.create_widgets()
         self.layout_widgets()
 
@@ -82,7 +85,7 @@ class FinanceSplitterGUI:
 
         self.subtitle_label = ttk.Label(
             self.root,
-            text="按科室拆分 Excel 财务数据",
+            text="按指定列拆分 Excel 财务数据",
             font=('Arial', 10)
         )
 
@@ -132,6 +135,24 @@ class FinanceSplitterGUI:
         self.style_combobox.current(0)
         # Bind selection to convert display value to internal value
         self.style_combobox.bind('<<ComboboxSelected>>', self._on_style_select)
+
+        # Split column selection
+        self.split_column_label = ttk.Label(self.options_frame, text="拆分列:")
+        self.split_column_combobox = ttk.Combobox(
+            self.options_frame,
+            textvariable=self.split_column,
+            values=["自动检测（默认）"],
+            state="normal",  # Allow manual input
+            width=18
+        )
+
+        # Help button (question mark)
+        self.help_button = ttk.Button(
+            self.options_frame,
+            text="?",
+            command=self.show_help,
+            width=3
+        )
 
         # Progress section
         self.progress_frame = ttk.LabelFrame(self.root, text="处理进度", padding=10)
@@ -183,7 +204,10 @@ class FinanceSplitterGUI:
         # Make options horizontal layout
         self.remove_empty_checkbox.pack(side='left', padx=(0, 20))
         self.style_label.pack(side='left', padx=(0, 5))
-        self.style_combobox.pack(side='left')
+        self.style_combobox.pack(side='left', padx=(0, 20))
+        self.split_column_label.pack(side='left', padx=(0, 5))
+        self.split_column_combobox.pack(side='left', padx=(0, 20))
+        self.help_button.pack(side='left')
 
         # Progress frame
         self.progress_frame.pack(fill='x', padx=20, pady=10)
@@ -210,6 +234,25 @@ class FinanceSplitterGUI:
             # Auto-set output directory to 'output' folder in the same directory as input file
             default_output = Path(file_path).parent / 'output'
             self.output_path.set(str(default_output))
+
+            # Load column names from the Excel file
+            try:
+                wb = load_workbook(str(file_path), data_only=True)
+                # Create analyzer with auto-detect mode for collecting headers
+                analyzer = SheetAnalyzer(wb, split_column=None)
+                headers = analyzer.get_all_unique_headers()
+                wb.close()
+
+                # Update combobox values
+                self.split_column_combobox['values'] = ["自动检测（默认）"] + headers
+                # Default to "科室" if it exists, otherwise auto-detect
+                if "科室" in headers:
+                    self.split_column.set("科室")
+                else:
+                    self.split_column.set("自动检测（默认）")
+            except Exception as e:
+                # If loading headers fails, just continue with default
+                pass
 
     def browse_output(self) -> None:
         """Open directory dialog to select output directory."""
@@ -271,6 +314,33 @@ class FinanceSplitterGUI:
         current_display = self.style_mode.get()
         if current_display in display_to_internal:
             self.style_mode.set(display_to_internal[current_display])
+
+    def show_help(self) -> None:
+        """Show help dialog with usage instructions."""
+        help_text = """甜甜的财务数据拆分工具 - 使用说明
+
+【功能】
+按指定列将 Excel 财务数据拆分成多个文件。
+
+【使用步骤】
+1. 点击"浏览"选择要拆分的 Excel 文件
+2. 选择或输入拆分列名（如"科室"、"姓名"等）
+3. 选择输出目录
+4. 点击"开始处理"
+
+【拆分列说明】
+- 默认会自动检测"科室"列
+- 可以从下拉列表选择列名
+- 也可以手动输入任意列名
+
+【样式模式】
+- 统一样式：所有单元格应用统一格式
+- 保留原样式：保持原有 Excel 样式
+- 无样式：不复制任何样式
+
+【其他选项】
+- 移除空白子表：不生成没有数据的子表"""
+        messagebox.showinfo("使用帮助", help_text)
 
     def update_status(self, message: str, progress: float = None) -> None:
         """
@@ -336,31 +406,39 @@ class FinanceSplitterGUI:
 
             # Analyze sheets
             self.root.after(0, lambda: self.update_status("正在分析表格结构...", 20))
-            analyzer = SheetAnalyzer(wb)
+            # Get user-specified split column
+            split_col = self.split_column.get().strip()
+            if split_col == "自动检测（默认）":
+                split_col = None
+            analyzer = SheetAnalyzer(wb, split_column=split_col)
             sheet_structures = analyzer.analyze_all_sheets()
 
+            # Determine split column name for display
+            display_split_col = split_col if split_col else "科室（自动检测）"
+
             if not sheet_structures:
-                raise ValueError("未找到包含'科室'列的表格")
+                raise ValueError(f"未找到包含'{display_split_col}'列的表格")
 
             # Build department index (caches row indices)
             self.root.after(0, lambda: self.update_status("正在建立索引...", 30))
-            dept_index = DepartmentIndex(wb, sheet_structures)
+            dept_index = DepartmentIndex(wb, sheet_structures, split_column=split_col)
             dept_index.build_index()
 
             # Get departments from index
             all_departments = dept_index.get_departments()
 
             if not all_departments:
-                raise ValueError("未找到任何科室数据")
+                raise ValueError(f"未找到任何'{display_split_col}'数据")
 
             # Build workbooks using index
-            self.root.after(0, lambda: self.update_status(f"找到 {len(all_departments)} 个科室，正在生成文件...", 40))
+            self.root.after(0, lambda: self.update_status(f"找到 {len(all_departments)} 个{display_split_col}，正在生成文件...", 40))
             # Convert display style mode to internal value
             style_mode_value = self._style_display_map.get(self.style_mode.get(), "unified")
             builder = WorkbookBuilder(
                 wb, sheet_structures, output_dir, dept_index,
                 remove_empty_sheets=self.remove_empty_sheets.get(),
-                style_mode=style_mode_value
+                style_mode=style_mode_value,
+                split_column=split_col
             )
 
             total = len(all_departments)
@@ -379,9 +457,11 @@ class FinanceSplitterGUI:
 
             # Complete
             self.root.after(0, lambda: self.update_status(f"完成！成功生成 {success_count}/{total} 个文件", 100))
+            # Determine split column name for display
+            display_split_col = split_col if split_col else "科室（自动检测）"
             self.root.after(0, lambda: messagebox.showinfo(
                 "完成",
-                f"处理完成！\n\n成功生成 {success_count}/{total} 个科室文件\n\n输出目录: {output_dir}"
+                f"处理完成！\n\n成功生成 {success_count}/{total} 个文件\n按拆分列: {display_split_col}\n\n输出目录: {output_dir}"
             ))
 
         except Exception as e:

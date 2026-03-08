@@ -60,7 +60,8 @@ class WorkbookBuilder:
         output_dir: Path,
         dept_index: Optional[DepartmentIndex] = None,
         remove_empty_sheets: bool = True,
-        style_mode: str = "unified"
+        style_mode: str = "unified",
+        split_column: Optional[str] = None,
     ):
         """
         Initialize the builder with source workbook and structures.
@@ -73,6 +74,7 @@ class WorkbookBuilder:
             remove_empty_sheets: If True, remove sheets with no data for the department
             style_mode: Style mode - "original" (keep original styles),
                        "unified" (apply unified style), or "none" (no styles)
+            split_column: Optional name of the column to split by
         """
         self.source_workbook = source_workbook
         self.sheet_structures = sheet_structures
@@ -80,6 +82,7 @@ class WorkbookBuilder:
         self.dept_index = dept_index
         self.remove_empty_sheets = remove_empty_sheets
         self.style_mode = style_mode
+        self.split_column = split_column
 
     def build_workbook_for_department(self, department: str) -> Path:
         """
@@ -121,8 +124,7 @@ class WorkbookBuilder:
             structure = self.sheet_structures.get(sheet_name)
 
             if not structure or not structure.has_data:
-                # Copy sheet as-is if no structure or no department column
-                self._copy_sheet_as_is(new_workbook, source_worksheet)
+                # Skip sheets without the split column (no dept_col means no data to filter)
                 continue
 
             # Filter and copy data for this department

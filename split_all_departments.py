@@ -31,14 +31,20 @@ def parse_arguments():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Use default paths
+  # Use default paths (auto-detect department column)
   python split_all_departments.py
 
   # Specify input and output paths
   python split_all_departments.py -i data/input.xlsx -o output/
 
+  # List all available column names
+  python split_all_departments.py -l
+
+  # Specify which column to split by
+  python split_all_departments.py -s "科室"
+
   # Using long parameters
-  python split_all_departments.py --input data/input.xlsx --output output/
+  python split_all_departments.py --input data/input.xlsx --output output/ --split-column "科室"
         """
     )
 
@@ -60,6 +66,19 @@ Examples:
         '--keep-empty-sheets',
         action='store_true',
         help='保留空白子表（默认移除）'
+    )
+
+    parser.add_argument(
+        '-s', '--split-column',
+        type=str,
+        default=None,
+        help='指定拆分列名（默认：自动检测科室列）'
+    )
+
+    parser.add_argument(
+        '-l', '--list-columns',
+        action='store_true',
+        help='列出Excel文件中的所有可用列名并退出'
     )
 
     return parser.parse_args()
@@ -112,6 +131,24 @@ def main():
     # Parse command line arguments
     args = parse_arguments()
 
+    # If --list-columns is specified, just list columns and exit
+    if args.list_columns:
+        input_file = Path(args.input)
+        if not input_file.exists():
+            print(f"Error: Input file not found: {input_file.absolute()}")
+            return 1
+
+        print("Loading Excel file...")
+        wb = load_workbook(str(input_file), data_only=True)
+        analyzer = SheetAnalyzer(wb, split_column=None)
+        headers = analyzer.get_all_unique_headers()
+        wb.close()
+
+        print("\nAvailable columns:")
+        for header in headers:
+            print(f"  - {header}")
+        return 0
+
     # Validate paths
     input_file, output_path = validate_paths(args.input, args.output)
 
@@ -120,6 +157,10 @@ def main():
     print("=" * 60)
     print(f"\nInput file: {input_file.absolute()}")
     print(f"Output directory: {output_path.absolute()}")
+    if args.split_column:
+        print(f"Split column: {args.split_column}")
+    else:
+        print("Split column: Auto-detect (default)")
     print()
 
     try:
@@ -129,7 +170,7 @@ def main():
 
         # Analyze all sheets
         print("Analyzing sheets...")
-        analyzer = SheetAnalyzer(wb)
+        analyzer = SheetAnalyzer(wb, split_column=args.split_column)
         sheet_structures = analyzer.analyze_all_sheets()
 
         if not sheet_structures:

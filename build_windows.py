@@ -52,6 +52,7 @@ def main():
         '--onefile',
         '--clean',
         '--noconfirm',
+        '--icon=icons/app.ico',
         'gui_app.py'
     ]
 
