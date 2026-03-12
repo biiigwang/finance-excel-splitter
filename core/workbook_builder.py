@@ -144,14 +144,29 @@ class WorkbookBuilder:
             target_workbook: The workbook to copy to
             source_worksheet: The worksheet to copy
         """
-        target_worksheet = target_workbook.create_sheet(title=source_worksheet.title)
+        target_worksheet = target_workbook.create_sheet(
+            title=source_worksheet.title
+        )
 
         for row_idx in range(1, source_worksheet.max_row + 1):
             for col_idx in range(1, source_worksheet.max_column + 1):
                 source_cell = source_worksheet.cell(row=row_idx, column=col_idx)
                 target_cell = target_worksheet.cell(row=row_idx, column=col_idx)
 
-                target_cell.value = source_cell.value
+                # 对于合并单元格的非主单元格，从主单元格获取值
+                cell_value = source_cell.value
+                if cell_value is None:
+                    for merged_range in source_worksheet.merged_cells.ranges:
+                        if (merged_range.min_row <= row_idx <= merged_range.max_row
+                                and merged_range.min_col <= col_idx <= merged_range.max_col):
+                            main_cell = source_worksheet.cell(
+                                row=merged_range.min_row,
+                                column=merged_range.min_col
+                            )
+                            cell_value = main_cell.value
+                            break
+
+                target_cell.value = cell_value
 
                 # Apply style based on style_mode
                 if self.style_mode == "original":
@@ -159,6 +174,15 @@ class WorkbookBuilder:
                 elif self.style_mode == "unified":
                     apply_unified_style(target_cell)
                 # style_mode == "none": do nothing
+
+        # Copy merged cells
+        for merged_range in source_worksheet.merged_cells.ranges:
+            target_worksheet.merge_cells(
+                start_row=merged_range.min_row,
+                start_column=merged_range.min_col,
+                end_row=merged_range.max_row,
+                end_column=merged_range.max_col
+            )
 
         # Copy column widths
         for col_letter in source_worksheet.column_dimensions:
@@ -199,6 +223,31 @@ class WorkbookBuilder:
                 target_workbook, source_worksheet, structure, department
             )
 
+    def _get_merged_cells_for_header(
+        self, source_worksheet: Worksheet, data_start_row: int
+    ) -> list:
+        """
+        获取表头区域的合并单元格范围。
+
+        Args:
+            source_worksheet: 源工作表
+            data_start_row: 数据开始行（表头最后一行的下一行）
+
+        Returns:
+            合并单元格范围列表，每个元素是 (min_row, min_col, max_row, max_col)
+        """
+        merged_ranges = []
+        for merged_range in source_worksheet.merged_cells.ranges:
+            if merged_range.min_row < data_start_row:
+                # 只保留与表头区域相交的合并单元格
+                merged_ranges.append((
+                    merged_range.min_row,
+                    merged_range.min_col,
+                    min(merged_range.max_row, data_start_row - 1),
+                    merged_range.max_col
+                ))
+        return merged_ranges
+
     def _copy_filtered_sheet_optimized(
         self,
         target_workbook: Workbook,
@@ -230,11 +279,33 @@ class WorkbookBuilder:
         # Get total columns
         max_col = source_worksheet.max_column
 
+        # 获取表头区域的合并单元格
+        data_start = structure.data_start_row or 1
+        header_merged_cells = self._get_merged_cells_for_header(source_worksheet, data_start)
+
         # Copy header rows using iter_rows for efficiency
         # Note: iter_rows returns a generator of tuples (one tuple per row)
-        data_start = structure.data_start_row or 1
         for row in source_worksheet.iter_rows(min_row=1, max_row=data_start - 1, min_col=1, max_col=max_col):
-            row_values = [cell.value for cell in row]
+            row_values = []
+            for cell in row:
+                # 对于合并单元格的非主单元格，从主单元格获取值
+                if cell.value is None:
+                    # 检查是否属于合并单元格
+                    for merged_range in source_worksheet.merged_cells.ranges:
+                        if (merged_range.min_row <= cell.row <= merged_range.max_row and
+                            merged_range.min_col <= cell.column <= merged_range.max_col):
+                            # 获取主单元格的值
+                            main_cell = source_worksheet.cell(
+                                row=merged_range.min_row,
+                                column=merged_range.min_col
+                            )
+                            row_values.append(main_cell.value)
+                            break
+                    else:
+                        row_values.append(cell.value)
+                else:
+                    row_values.append(cell.value)
+
             target_ws.append(row_values)
 
             # Apply style to header row cells
@@ -248,6 +319,15 @@ class WorkbookBuilder:
                 for cell in target_ws[target_ws.max_row]:
                     apply_unified_style(cell)
             # style_mode == "none": do nothing
+
+        # 在目标工作表中重新创建合并单元格
+        for min_row, min_col, max_row, merge_max_col in header_merged_cells:
+            target_ws.merge_cells(
+                start_row=min_row,
+                start_column=min_col,
+                end_row=max_row,
+                end_column=merge_max_col
+            )
 
         # Copy data rows using iter_rows and append (only if there are matching rows)
         if matching_rows:
@@ -312,13 +392,30 @@ class WorkbookBuilder:
 
         target_row = 1
 
+        # 获取表头区域的合并单元格
+        data_start = structure.data_start_row or 1
+        header_merged_cells = self._get_merged_cells_for_header(source_worksheet, data_start)
+
         # Copy header rows (everything before data starts)
-        for row_idx in range(1, structure.data_start_row):
+        for row_idx in range(1, data_start):
             for col_idx in range(1, source_worksheet.max_column + 1):
                 source_cell = source_worksheet.cell(row=row_idx, column=col_idx)
                 target_cell = target_worksheet.cell(row=target_row, column=col_idx)
 
-                target_cell.value = source_cell.value
+                # 对于合并单元格的非主单元格，从主单元格获取值
+                cell_value = source_cell.value
+                if cell_value is None:
+                    for merged_range in source_worksheet.merged_cells.ranges:
+                        if (merged_range.min_row <= row_idx <= merged_range.max_row and
+                            merged_range.min_col <= col_idx <= merged_range.max_col):
+                            main_cell = source_worksheet.cell(
+                                row=merged_range.min_row,
+                                column=merged_range.min_col
+                            )
+                            cell_value = main_cell.value
+                            break
+
+                target_cell.value = cell_value
 
                 # Apply style based on style_mode
                 if self.style_mode == "original":
@@ -328,6 +425,15 @@ class WorkbookBuilder:
                 # style_mode == "none": do nothing
 
             target_row += 1
+
+        # 在目标工作表中重新创建合并单元格
+        for min_row, min_col, max_row, max_col in header_merged_cells:
+            target_worksheet.merge_cells(
+                start_row=min_row,
+                start_column=min_col,
+                end_row=max_row,
+                end_column=max_col
+            )
 
         # Copy matching data rows (only if there are matching rows)
         if matching_rows:
@@ -354,7 +460,7 @@ class WorkbookBuilder:
                     source_worksheet.column_dimensions[col_letter].width
 
         # Copy row heights for header rows
-        for row_idx in range(1, structure.data_start_row):
+        for row_idx in range(1, data_start):
             if row_idx in source_worksheet.row_dimensions:
                 target_worksheet.row_dimensions[row_idx].height = \
                     source_worksheet.row_dimensions[row_idx].height

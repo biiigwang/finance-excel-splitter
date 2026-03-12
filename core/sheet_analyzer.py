@@ -66,10 +66,40 @@ class SheetAnalyzer:
             structure.header_row = header_row
             structure.dept_col = dept_col
             structure.dept_col_letter = self._get_column_letter(dept_col)
-            structure.data_start_row = header_row + 1
+            # 检测表头区域的合并单元格，确定实际的数据起始行
+            structure.data_start_row = self._find_data_start_row(
+                worksheet, header_row
+            )
             structure.has_data = True
 
         return structure
+
+    def _find_data_start_row(
+        self, worksheet: Worksheet, header_row: int
+    ) -> int:
+        """
+        根据合并单元格检测实际的数据起始行。
+
+        检查表头行的所有合并单元格，如果有合并单元格跨越了多行，
+        则数据起始行应该是这些合并单元格的最大行号 + 1。
+
+        Args:
+            worksheet: 工作表
+            header_row: 检测到的表头行（包含"科室"列的行）
+
+        Returns:
+            数据起始行号（1-based）
+        """
+        data_start = header_row + 1
+
+        # 检查所有合并单元格
+        for merged_range in worksheet.merged_cells.ranges:
+            # 如果合并单元格包含表头行的任何部分
+            if merged_range.min_row <= header_row <= merged_range.max_row:
+                # 数据起始行至少是合并单元格的下一行
+                data_start = max(data_start, merged_range.max_row + 1)
+
+        return data_start
 
     def _find_header_and_dept_col(self, worksheet: Worksheet) -> Tuple[Optional[int], Optional[int]]:
         """
@@ -152,7 +182,8 @@ class SheetAnalyzer:
 
         对于每个 sheet：
         - 先尝试找到科室列所在的行作为表头行
-        - 如果找不到科室列，取第一行或列数最多的行
+        - 然后检测所有表头行（考虑合并单元格）
+        - 收集所有表头行的非空值
 
         Returns:
             去重并排序后的列名列表
@@ -166,13 +197,17 @@ class SheetAnalyzer:
             header_row, _ = self._find_header_row_for_headers(worksheet)
 
             if header_row:
-                # 收集该行的所有非空列名
-                for col_idx in range(1, worksheet.max_column + 1):
-                    cell_value = worksheet.cell(row=header_row, column=col_idx).value
-                    if cell_value:
-                        header_str = str(cell_value).strip()
-                        if header_str:
-                            all_headers.add(header_str)
+                # 检测实际的数据起始行（考虑合并单元格）
+                data_start = self._find_data_start_row(worksheet, header_row)
+
+                # 收集所有表头行（从第1行到数据起始行的前一行）的非空值
+                for row_idx in range(1, data_start):
+                    for col_idx in range(1, worksheet.max_column + 1):
+                        cell_value = worksheet.cell(row=row_idx, column=col_idx).value
+                        if cell_value:
+                            header_str = str(cell_value).strip()
+                            if header_str:
+                                all_headers.add(header_str)
 
         # 排序后返回
         return sorted(list(all_headers))
